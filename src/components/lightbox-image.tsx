@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ImgHTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * 文章内图片：点击放大（灯箱，PRD FR-1-08 / US-19），懒加载（FR-1-08）。
@@ -38,7 +39,8 @@ export function LightboxImage(props: ImgHTMLAttributes<HTMLImageElement>) {
         className="cursor-zoom-in"
         onClick={() => setOpen(true)}
       />
-      {open && (
+      {/* 灯箱通过 portal 挂到 body：图片位于 <p> 段落内，直接渲染 div 会成为 <p> 后代（非法 HTML + hydration 错误） */}
+      {open && createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -61,7 +63,8 @@ export function LightboxImage(props: ImgHTMLAttributes<HTMLImageElement>) {
           >
             ✕
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
