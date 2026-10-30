@@ -235,13 +235,17 @@ body {
   line-height: 1.7;
 }
 
-/* 双主题：默认 light，html.dark 时切 dark */
+/* 双主题：默认 light，html.dark 时切 dark
+   shiki 把每个 token 的颜色写进 --shiki-light/--shiki-dark 变量，
+   这里用变量作为 color/background 继承到各 token span */
 .prose-post pre[data-theme~="github-dark"] {
-  background: #f6f8fa;
+  color: var(--shiki-light);
+  background: var(--shiki-light-bg, #f6f8fa);
 }
 
 .dark .prose-post pre[data-theme~="github-dark"] {
-  background: #0d1117;
+  color: var(--shiki-dark);
+  background: var(--shiki-dark-bg, #0d1117);
 }
 
 /* 语言标签（右上角，复制按钮位于其右侧） */
