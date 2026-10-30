@@ -2,8 +2,11 @@
 // 类型直接内联声明，与 next-mdx-remote 的 mdxOptions 参数结构保持一致。
 
 import type { PluggableList } from "unified";
+import remarkGfm from "remark-gfm";
 import rehypePrettyCode, { type Options as PrettyCodeOptions } from "rehype-pretty-code";
 import rehypeExternalLinks from "rehype-external-links";
+import rehypeSanitize from "rehype-sanitize";
+import { sanitizeSchema } from "./sanitize";
 
 const prettyCodeOptions: PrettyCodeOptions = {
   // 双主题：构建时同时生成两套配色，用 CSS 按 html 明/暗切换
@@ -15,11 +18,21 @@ const prettyCodeOptions: PrettyCodeOptions = {
 };
 
 /** 传给 <MDXRemote options={{ mdxOptions }}> 的配置 */
-export const mdxOptions: { format: "md"; rehypePlugins: PluggableList } = {
+export const mdxOptions: {
+  format: "md";
+  remarkPlugins: PluggableList;
+  rehypePlugins: PluggableList;
+} = {
   format: "md",
+  remarkPlugins: [
+    // GFM：表格、删除线、任务列表等（PRD FR-1-02 验收标准 1 表格渲染）
+    [remarkGfm, { singleTilde: false }],
+  ],
   rehypePlugins: [
     [rehypePrettyCode, prettyCodeOptions],
     // 正文外部链接新窗口打开（PRD FR-1-02 验收标准 4）
     [rehypeExternalLinks, { target: "_blank", rel: ["noopener", "noreferrer"] }],
+    // 最后执行：剥离白名单之外的标签与属性（PRD FR-1-02 验收标准 3）
+    [rehypeSanitize, sanitizeSchema],
   ],
 };

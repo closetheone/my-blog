@@ -134,6 +134,79 @@ body {
   border-radius: 0.5rem;
 }
 
+/* 图注（FR-1-08：支持图注） */
+.prose-post figcaption {
+  margin-top: 0.5em;
+  font-size: 0.85em;
+  text-align: center;
+  color: #71717a;
+}
+
+.dark .prose-post figcaption {
+  color: #a1a1aa;
+}
+
+/* 灯箱（PRD FR-1-08 / US-19：点击放大） */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgba(0, 0, 0, 0.8);
+  cursor: zoom-out;
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  cursor: default;
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  font-size: 1rem;
+  color: #e6edf3;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 阅读进度条（PRD M9：顶部 2px 细条） */
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  height: 2px;
+  pointer-events: none;
+}
+
+.reading-progress-bar {
+  height: 100%;
+  background: #2563eb;
+  transition: width 0.1s linear;
+}
+
+.dark .reading-progress-bar {
+  background: #60a5fa;
+}
+
 .prose-post code {
   font-family: var(--font-mono), monospace;
   font-size: 0.875em;
@@ -162,16 +235,20 @@ body {
   line-height: 1.7;
 }
 
-/* 双主题：默认 light，html.dark 时切 dark */
+/* 双主题：默认 light，html.dark 时切 dark
+   shiki 把每个 token 的颜色写进 --shiki-light/--shiki-dark 变量，
+   这里用变量作为 color/background 继承到各 token span */
 .prose-post pre[data-theme~="github-dark"] {
-  background: #f6f8fa;
+  color: var(--shiki-light);
+  background: var(--shiki-light-bg, #f6f8fa);
 }
 
 .dark .prose-post pre[data-theme~="github-dark"] {
-  background: #0d1117;
+  color: var(--shiki-dark);
+  background: var(--shiki-dark-bg, #0d1117);
 }
 
-/* 语言标签（右上角，含后续复制按钮的占位） */
+/* 语言标签（右上角，复制按钮位于其右侧） */
 .prose-post pre[data-language]::before {
   content: attr(data-language);
   position: absolute;
@@ -182,6 +259,33 @@ body {
   letter-spacing: 0.05em;
   color: #8b949e;
   pointer-events: none;
+}
+
+/* 复制按钮（代码块右上角，PRD FR-1-02 / M9） */
+.code-copy-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1;
+  color: #8b949e;
+  background: rgba(139, 148, 158, 0.12);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.code-copy-btn:hover {
+  background: rgba(139, 148, 158, 0.25);
+  color: #e6edf3;
+}
+
+.code-copy-btn[data-copied] {
+  color: #3fb950;
 }
 
 /* 行号：counter 从每行 .line 元素累加 */
