@@ -186,27 +186,6 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
-/* 阅读进度条（PRD M9：顶部 2px 细条） */
-.reading-progress {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 60;
-  height: 2px;
-  pointer-events: none;
-}
-
-.reading-progress-bar {
-  height: 100%;
-  background: #2563eb;
-  transition: width 0.1s linear;
-}
-
-.dark .reading-progress-bar {
-  background: #60a5fa;
-}
-
 .prose-post code {
   font-family: var(--font-mono), monospace;
   font-size: 0.875em;
@@ -237,7 +216,7 @@ body {
 
 /* 双主题：默认 light，html.dark 时切 dark
    shiki 把每个 token 的颜色写进 --shiki-light/--shiki-dark 变量，
-   这里用变量作为 color/background 继承到各 token span */
+   需要 pre 和 span 都设置 color 来消费这些变量 */
 .prose-post pre[data-theme~="github-dark"] {
   color: var(--shiki-light);
   background: var(--shiki-light-bg, #f6f8fa);
@@ -246,6 +225,15 @@ body {
 .dark .prose-post pre[data-theme~="github-dark"] {
   color: var(--shiki-dark);
   background: var(--shiki-dark-bg, #0d1117);
+}
+
+/* 每个 token span 上的 --shiki-light/--shiki-dark 变量需要 color 来消费 */
+.prose-post pre[data-theme~="github-dark"] span {
+  color: var(--shiki-light);
+}
+
+.dark .prose-post pre[data-theme~="github-dark"] span {
+  color: var(--shiki-dark);
 }
 
 /* 语言标签（右上角，复制按钮位于其右侧） */

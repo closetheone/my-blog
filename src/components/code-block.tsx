@@ -16,7 +16,14 @@ export function CodeBlock({
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    const text = ref.current?.innerText;
+    // 排除复制按钮自身，避免 "⧉"/"✓" 混入复制内容
+    const btn = ref.current?.querySelector("button");
+    const text = ref.current
+      ? Array.from(ref.current.childNodes)
+          .filter((node) => node !== btn)
+          .map((node) => node.textContent ?? "")
+          .join("")
+      : undefined;
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
