@@ -4,6 +4,8 @@
 import type { PluggableList } from "unified";
 import rehypePrettyCode, { type Options as PrettyCodeOptions } from "rehype-pretty-code";
 import rehypeExternalLinks from "rehype-external-links";
+import rehypeSanitize from "rehype-sanitize";
+import { sanitizeSchema } from "./sanitize";
 
 const prettyCodeOptions: PrettyCodeOptions = {
   // 双主题：构建时同时生成两套配色，用 CSS 按 html 明/暗切换
@@ -21,5 +23,7 @@ export const mdxOptions: { format: "md"; rehypePlugins: PluggableList } = {
     [rehypePrettyCode, prettyCodeOptions],
     // 正文外部链接新窗口打开（PRD FR-1-02 验收标准 4）
     [rehypeExternalLinks, { target: "_blank", rel: ["noopener", "noreferrer"] }],
+    // 最后执行：剥离白名单之外的标签与属性（PRD FR-1-02 验收标准 3）
+    [rehypeSanitize, sanitizeSchema],
   ],
 };

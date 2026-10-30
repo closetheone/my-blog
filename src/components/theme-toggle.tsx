@@ -17,8 +17,12 @@ export function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // 必须在挂载后读取 localStorage：渲染时读取会导致服务端/客户端水合不一致
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     const saved = (localStorage.getItem(STORAGE_KEY) as Theme) ?? "system";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(saved);
   }, []);
 

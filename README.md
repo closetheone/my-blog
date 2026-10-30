@@ -39,7 +39,18 @@ pinned: true（选填，置顶，最多 3 篇）
 ---
 ```
 
-正文为 Markdown，代码块支持 `ts`、`sql` 等语言高亮与 `showLineNumbers`、`{1,3-4}` 行高亮指令。
+正文为 Markdown，代码块支持 `ts`、`sql` 等语言高亮与 `showLineNumbers`、`{1,3-4}` 行高亮指令；代码块右上角有复制按钮。
+
+图片懒加载、点击可放大（灯箱）；图注用原生 `<figure>` 写法：
+
+```markdown
+<figure>
+  <img src="/images/foo.png" alt="描述" />
+  <figcaption>图注文字</figcaption>
+</figure>
+```
+
+正文中的原始 HTML 经过白名单过滤（仅放行 figure/figcaption 等安全标签与 shiki 所需属性，`<script>`、事件属性会被剥离）。
 
 ## 版本规划
 

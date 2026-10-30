@@ -21,7 +21,10 @@ export function SiteFooter() {
   const [year, setYear] = useState<number>(2026);
 
   useEffect(() => {
+    // 运行天数/年份只能在客户端计算（SSR 构建时刻无意义），无法避免 effect 中 setState
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDays(runningDays());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setYear(new Date().getFullYear());
   }, []);
 
