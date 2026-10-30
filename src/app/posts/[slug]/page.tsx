@@ -6,7 +6,9 @@ import { mdxOptions } from "@/lib/mdx";
 import { SITE_NAME } from "@/lib/site";
 import { CodeBlock } from "@/components/code-block";
 import { LightboxImage } from "@/components/lightbox-image";
-import { ReadingProgress } from "@/components/reading-progress";
+
+// 博客文章页依赖 params 读取 slug，不需要 instant navigation 优化
+export const instant = false;
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -35,10 +37,7 @@ export default async function PostPage({ params }: Props) {
   if (!post || post.status !== "published") notFound();
 
   return (
-    <>
-      {/* 阅读进度条（PRD M9：顶部 2px 细条，随滚动前进） */}
-      <ReadingProgress />
-      <article className="mx-auto max-w-3xl px-4 py-10">
+    <article className="mx-auto max-w-3xl px-4 py-10">
         <header className="mb-8 border-b border-zinc-200 pb-8 dark:border-zinc-800">
           <h1 className="text-3xl font-bold leading-tight">{post.title}</h1>
           <p className="mt-3 text-sm text-zinc-500">
@@ -72,7 +71,6 @@ export default async function PostPage({ params }: Props) {
             协议发布 · {SITE_NAME}
           </p>
         </footer>
-      </article>
-    </>
+    </article>
   );
 }
