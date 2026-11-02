@@ -102,3 +102,20 @@ export function wordCount(content: string): number {
 export function readingMinutes(content: string): number {
   return Math.max(1, Math.ceil(wordCount(content) / 400));
 }
+
+/**
+ * 上一篇/下一篇（PRD FR-1-04）：在已发布文章（须按日期倒序）中找相邻两篇。
+ * prev = 更新的一篇（列表中靠前的），next = 更早的一篇（列表中靠后的）。
+ * 首篇没有 prev、末篇没有 next。纯函数，便于单测。
+ */
+export function getAdjacentPosts(
+  posts: Pick<Post, "slug">[],
+  slug: string,
+): { prev: Pick<Post, "slug"> | undefined; next: Pick<Post, "slug"> | undefined } {
+  const index = posts.findIndex((p) => p.slug === slug);
+  if (index === -1) return { prev: undefined, next: undefined };
+  return {
+    prev: index > 0 ? posts[index - 1] : undefined,
+    next: index < posts.length - 1 ? posts[index + 1] : undefined,
+  };
+}
