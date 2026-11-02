@@ -1,9 +1,7 @@
-// 文章数据读取层 —— V1.0 的实现是读 content/ 目录下的 Markdown 文件。
-// V2.0 接入 Prisma 后仅需替换本文件内部实现，页面调用方零改动。
+// 文章数据读取层 —— V2.0 实现：读取 PostgreSQL（Prisma）
+// 页面调用方零改动，接口签名与 V1.0 保持一致。
 
-import fs from "node:fs";
-import path from "node:path";
-import matter from "gray-matter";
+import { prisma } from "./prisma";
 
 export type PostStatus = "draft" | "published" | "hidden";
 
@@ -19,73 +17,62 @@ export interface Post {
   content: string; // Markdown 原文（不含 front-matter）
 }
 
-const CONTENT_DIR = path.join(process.cwd(), "content", "posts");
-
-/** 容错：字段缺失或类型不对时给出可读的报错，方便写作时快速定位 */
-function parseFrontMatter(
-  slug: string,
-  raw: Record<string, unknown>,
-  content: string,
-): Post {
-  const errors: string[] = [];
-  if (typeof raw.title !== "string" || !raw.title) errors.push("title");
-  // YAML 会把 2026-10-28 解析成 Date 对象，统一归一化为 YYYY-MM-DD 字符串
-  const date =
-    raw.date instanceof Date ? raw.date.toISOString().slice(0, 10) : raw.date;
-  if (typeof date !== "string" || !date) errors.push("date");
-  if (typeof raw.excerpt !== "string" || !raw.excerpt) errors.push("excerpt");
-  if (typeof raw.category !== "string" || !raw.category) errors.push("category");
-  if (errors.length > 0) {
-    throw new Error(
-      `content/posts/${slug}.md 缺少必填 front-matter 字段: ${errors.join(", ")}`,
-    );
-  }
-
-  const status = (raw.status as PostStatus) ?? "published";
-  if (!["draft", "published", "hidden"].includes(status)) {
-    throw new Error(
-      `content/posts/${slug}.md 的 status 必须是 draft/published/hidden 之一，当前为 ${status}`,
-    );
-  }
+/** 将 Prisma Post 记录映射为前端 Post 接口 */
+function mapPost(record: {
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  status: string;
+  pinned: boolean;
+  publishedAt: Date | null;
+  category: { name: string };
+  tags: { tag: { name: string } }[];
+}): Post {
+  // 优先用 publishedAt（发布时间），fallback 到当天
+  const date = record.publishedAt
+    ? record.publishedAt.toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
 
   return {
-    slug,
-    title: raw.title as string,
-    date: date as string,
-    excerpt: raw.excerpt as string,
-    category: raw.category as string,
-    tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
-    status,
-    pinned: raw.pinned === true,
-    content,
+    slug: record.slug,
+    title: record.title,
+    date,
+    excerpt: record.excerpt,
+    category: record.category.name,
+    tags: record.tags.map((t) => t.tag.name),
+    status: record.status as PostStatus,
+    pinned: record.pinned,
+    content: record.content,
   };
 }
 
-function readOne(slug: string): Post | null {
-  const filePath = path.join(CONTENT_DIR, `${slug}.md`);
-  if (!fs.existsSync(filePath)) return null;
-  const { data, content } = matter(fs.readFileSync(filePath, "utf-8"));
-  return parseFrontMatter(slug, data, content);
-}
-
-/** 全部文章（含草稿/隐藏），按日期倒序 */
+/** 全部文章（含草稿/隐藏），按发布时间倒序 */
 export async function getAllPosts(): Promise<Post[]> {
-  fs.mkdirSync(CONTENT_DIR, { recursive: true });
-  const files = fs.readdirSync(CONTENT_DIR).filter((f) => f.endsWith(".md"));
-  const posts = files.map((file) => readOne(file.replace(/\.md$/, "")));
-  return posts
-    .filter((p): p is Post => p !== null)
-    .sort((a, b) => b.date.localeCompare(a.date));
+  const records = await prisma.post.findMany({
+    include: { category: true, tags: { include: { tag: true } } },
+    orderBy: { publishedAt: { sort: "desc", nulls: "last" } },
+  });
+  return records.map(mapPost);
 }
 
-/** 仅已发布文章（前台可见），按日期倒序 */
+/** 仅已发布文章（前台可见），按发布时间倒序 */
 export async function getPublishedPosts(): Promise<Post[]> {
-  const posts = await getAllPosts();
-  return posts.filter((p) => p.status === "published");
+  const records = await prisma.post.findMany({
+    where: { status: "published" },
+    include: { category: true, tags: { include: { tag: true } } },
+    orderBy: { publishedAt: { sort: "desc", nulls: "last" } },
+  });
+  return records.map(mapPost);
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
-  return readOne(slug);
+  const record = await prisma.post.findUnique({
+    where: { slug },
+    include: { category: true, tags: { include: { tag: true } } },
+  });
+  if (!record) return null;
+  return mapPost(record);
 }
 
 /** 字数统计（中文按字计、英文按词计的粗略近似），用于计算阅读时长 */

@@ -1,0 +1,72 @@
+// V2.0 核心数据模型
+// 对应 PRD §5.0：管理员账号、文章、分类、标签
+// 评论/点赞/留言/图片 在 V2.1+ 逐步加入
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- 管理员（FR-6-01/02）----------
+model Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String // argon2 哈希，不存明文
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------- 分类（FR-2-01：树形，最多两级，全站上限 8 个）----------
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  slug      String     @unique
+  parentId  Int?
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  posts     Post[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// ---------- 标签（FR-2-02：平铺，一篇文章可挂多个）----------
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  slug      String   @unique
+  posts     PostTag[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------- 文章（FR-1-03：draft/published/hidden）----------
+model Post {
+  id          Int        @id @default(autoincrement())
+  slug        String     @unique
+  title       String
+  excerpt     String
+  content     String // Markdown 原文（不含 front-matter）
+  status      String     @default("draft") // draft | published | hidden
+  pinned      Boolean    @default(false)
+  categoryId  Int
+  category    Category   @relation(fields: [categoryId], references: [id])
+  tags        PostTag[]
+  publishedAt DateTime?  // 发布时间；编辑不刷新（FR-6-07）
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// ---------- 文章-标签 多对多 ----------
+model PostTag {
+  id     Int  @id @default(autoincrement())
+  postId Int
+  tagId  Int
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tagId])
+}
