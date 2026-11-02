@@ -35,10 +35,9 @@ export function SiteFooter() {
           © {year} {SITE_NAME} · 本站已运行 {days ?? "…"} 天
         </p>
         <p className="text-xs">
-          <Link href="/" className="hover:underline">
+          <Link href="/feed.xml" className="hover:underline">
             RSS
           </Link>
-          （V1.1 上线）
         </p>
       </div>
     </footer>
