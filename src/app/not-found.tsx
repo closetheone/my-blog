@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RandomPostButton } from "@/components/random-post-button";
 
 export default function NotFound() {
   return (
@@ -10,14 +11,11 @@ export default function NotFound() {
       <div className="mt-8 flex gap-4">
         <Link
           href="/"
-          className="rounded-lg bg-foreground px-4 py-2 text-sm text-background hover:opacity-80"
+          className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
         >
           回首页
         </Link>
-        {/* 随机看一篇：V1.1 接入文章数据后实现 */}
-        <span className="cursor-not-allowed rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-400 dark:border-zinc-700">
-          随机看一篇（即将上线）
-        </span>
+        <RandomPostButton />
       </div>
     </div>
   );
