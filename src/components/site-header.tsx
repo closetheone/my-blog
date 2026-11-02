@@ -12,6 +12,9 @@ export function SiteHeader() {
           <Link href="/" className="hover:opacity-70">
             首页
           </Link>
+          <Link href="/archive" className="hidden hover:opacity-70 sm:inline">
+            归档
+          </Link>
           <Link href="/about" className="hidden hover:opacity-70 sm:inline">
             关于
           </Link>
