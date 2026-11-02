@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypePrettyCode, { type Options as PrettyCodeOptions } from "rehype-pretty-code";
 import rehypeExternalLinks from "rehype-external-links";
 import rehypeSanitize from "rehype-sanitize";
+import rehypeSlug from "rehype-slug";
 import { sanitizeSchema } from "./sanitize";
 
 const prettyCodeOptions: PrettyCodeOptions = {
@@ -34,5 +35,8 @@ export const mdxOptions: {
     [rehypeExternalLinks, { target: "_blank", rel: ["noopener", "noreferrer"] }],
     // 最后执行：剥离白名单之外的标签与属性（PRD FR-1-02 验收标准 3）
     [rehypeSanitize, sanitizeSchema],
+    // 放在 sanitize 之后：用户手写 HTML 的 id 会被 clobber 改写，
+    // 而这里给 h2/h3 补的锚点 id 是干净新增的（TOC 依赖，PRD FR-1-06）
+    rehypeSlug,
   ],
 };
