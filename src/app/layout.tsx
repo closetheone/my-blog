@@ -16,6 +16,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: {
     default: SITE_NAME,
