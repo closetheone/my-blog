@@ -18,13 +18,24 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+// Next 16（cacheComponents）下 params 的 slug 是 URL 编码后的原样字符串，
+// 需手动解码（中文 slug 不解码会查库 miss → 404；纯 ASCII slug 编码不变所以无感）
+async function decodeSlug(params: Promise<{ slug: string }>) {
+  const { slug } = await params;
+  try {
+    return { slug: decodeURIComponent(slug) };
+  } catch {
+    return { slug };
+  }
+}
+
 export async function generateStaticParams() {
   const posts = await getPublishedPosts();
   return posts.map((post) => ({ slug: post.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug } = await decodeSlug(params);
   const post = await getPostBySlug(slug);
   if (!post) return {};
   return {
@@ -35,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PostPage({ params }: Props) {
   "use cache";
-  const { slug } = await params;
+  const { slug } = await decodeSlug(params);
   const post = await getPostBySlug(slug);
 
   if (!post || post.status !== "published") notFound();
