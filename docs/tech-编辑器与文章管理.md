@@ -131,7 +131,10 @@ listPosts(status?): 返回给管理端的精简字段（id/slug/title/excerpt/st
 
 - `src/lib/articles.ts` 的三个读函数（`getAllPosts` / `getPublishedPosts` / `getPostBySlug`）加 `cacheTag("posts")`（`next/cache`，签名 `cacheTag(tag)`，在函数体内调用；`"use cache"` 的 `getPostBySlug` 同样适用）。
 - 注意：`articles.ts` 现在是给 RSC 读的纯查询层，加 `cacheTag` 后这些函数在 PPR 静态壳里的数据会按 tag 失效。前台首页/archive 是动态数据（`getPublishedPosts` 未被 `"use cache"` 包裹，首页 page.tsx 需确认——实现时读一下 `src/app/(site)/page.tsx` 和 `archive/page.tsx`，如果它们被缓存组件包裹，tag 才会生效；没有被包裹则天然动态，revalidateTag 只是保险）。
-- 所有 mutation（create/update/publish/delete）成功后 `revalidateTag("posts")`（不带 `"max"`，默认 SWR 语义：旧内容先出、后台刷新——个人博客可接受）。
+- 所有 mutation（create/update/publish/delete）成功后 `revalidateTag("posts", { expire: 0 })`。**偏差回填（2026-11-03 实现时确认）**：
+  - Next 16 中单参 `revalidateTag(tag)` 已废弃（类型签名要求第二参 profile），必须写第二参。
+  - 最初按本文档写了 `revalidateTag("posts", "max")`，踩坑：dev 环境下对页面级（App Shell / generateStaticParams）缓存的刷新存在 404 固化风险。改 `{ expire: 0 }`（过期内容立即作废，下次请求阻塞重新渲染）后行为干净。个人博客量级可接受这点阻塞。
+  - **重大踩坑：Next 16（cacheComponents）动态路由 `params` 的 slug 是 URL 编码后的原样字符串，不会自动 decode**。中文 slug（如 `1103申娟测试` → `1103%E7%94%B3%E5%A8%9F%E6%B5%8B%E8%AF%95`）直接查库必然 miss → 404。修复：`(site)/posts/[slug]/page.tsx` 加 `decodeSlug()`（`decodeURIComponent`，try/catch 兜底）统一解码后再查库。**服务端生成 slug 时也应优先用 ASCII**（当前 slugifyTitle 对纯中文保留中文，中文 slug 的 URL 在浏览器里是编码形态，前台必须解码；后续若改 slug 生成为纯 ASCII 可消除这类风险）。
 - **禁止**使用 `export const dynamic = "force-dynamic"`（`cacheComponents: true` 下 build 报错，历史踩坑记录）。
 
 ## 4. 前端

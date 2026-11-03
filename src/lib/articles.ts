@@ -2,6 +2,7 @@
 // 页面调用方零改动，接口签名与 V1.0 保持一致。
 
 import { prisma } from "./prisma";
+import { cacheTag } from "next/cache";
 
 export type PostStatus = "draft" | "published" | "hidden";
 
@@ -49,6 +50,8 @@ function mapPost(record: {
 
 /** 全部文章（含草稿/隐藏），按发布时间倒序 */
 export async function getAllPosts(): Promise<Post[]> {
+  "use cache";
+  cacheTag("posts");
   const records = await prisma.post.findMany({
     include: { category: true, tags: { include: { tag: true } } },
     orderBy: { publishedAt: { sort: "desc", nulls: "last" } },
@@ -58,6 +61,8 @@ export async function getAllPosts(): Promise<Post[]> {
 
 /** 仅已发布文章（前台可见），按发布时间倒序 */
 export async function getPublishedPosts(): Promise<Post[]> {
+  "use cache";
+  cacheTag("posts");
   const records = await prisma.post.findMany({
     where: { status: "published" },
     include: { category: true, tags: { include: { tag: true } } },
@@ -67,6 +72,8 @@ export async function getPublishedPosts(): Promise<Post[]> {
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
+  "use cache";
+  cacheTag("posts");
   const record = await prisma.post.findUnique({
     where: { slug },
     include: { category: true, tags: { include: { tag: true } } },
