@@ -1,10 +1,12 @@
 /**
  * 一次性数据迁移脚本：将 content/posts/*.md 导入 PostgreSQL
  * 用法：npx tsx prisma/seed.ts
+ * 管理员引导：设置 ADMIN_USERNAME / ADMIN_PASSWORD 环境变量后首次运行创建（幂等）
  */
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { hash } from "@node-rs/argon2";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -23,6 +25,23 @@ const INITIAL_CATEGORIES: { name: string; slug: string; parent?: string }[] = [
 
 async function seed() {
   console.log("🌱 开始种子数据…");
+
+  // 0. 创建管理员（幂等，FR-6-01）
+  const username = process.env.ADMIN_USERNAME;
+  const password = process.env.ADMIN_PASSWORD;
+  if (username && password) {
+    const existing = await prisma.admin.findUnique({ where: { username } });
+    if (!existing) {
+      await prisma.admin.create({
+        data: { username, password: await hash(password) },
+      });
+      console.log(`  ✅ 已创建管理员 ${username}`);
+    } else {
+      console.log("  ⏭️  管理员已存在，跳过（如需重置密码请手动更新）");
+    }
+  } else {
+    console.warn("  ⚠️  未设置 ADMIN_USERNAME / ADMIN_PASSWORD，跳过管理员创建");
+  }
 
   // 1. 创建分类（幂等）
   const catMap = new Map<string, number>();

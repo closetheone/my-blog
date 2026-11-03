@@ -16,6 +16,7 @@ model Admin {
   id        Int      @id @default(autoincrement())
   username  String   @unique
   password  String // argon2 哈希，不存明文
+  sessions  Session[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -69,4 +70,17 @@ model PostTag {
   tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([postId, tagId])
+}
+
+// ---------- 会话（FR-6-02：登出=删行）----------
+model Session {
+  id         String   @id
+  adminId    Int
+  admin      Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  rememberMe Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  updatedAt  DateTime @updatedAt
+
+  @@index([adminId])
 }

@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { themeInitScript } from "@/lib/theme-init";
 import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 import "./globals.css";
@@ -37,9 +35,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         {/* 内联主题脚本：先于首帧执行，避免暗色用户看到闪白 */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+        {children}
       </body>
     </html>
   );
