@@ -4,6 +4,8 @@ import { getCurrentAdmin } from "@/lib/auth";
 import { getPostFull } from "@/lib/posts";
 import { PostEditor, type EditorInitial } from "@/components/admin/post-editor";
 
+export const instant = false;
+
 export const metadata = {
   title: "编辑文章",
 };
@@ -29,6 +31,7 @@ export default async function EditPostPage({
     content: post.content,
     status: post.status as EditorInitial["status"],
     publishedAt: post.publishedAt ? post.publishedAt.toISOString() : null,
+    scheduledFor: post.scheduledFor ? post.scheduledFor.toISOString() : null,
     categoryId: post.categoryId,
     tagIds: post.tagIds,
     categoryName: post.category,

@@ -18,6 +18,7 @@ interface AdminPost {
   category: string | null;
   tags: string[];
   publishedAt: string | null;
+  scheduledFor: string | null;
   updatedAt: string;
 }
 
@@ -102,6 +103,19 @@ export function PostList() {
     }
   }
 
+  async function handleCancelSchedule(p: AdminPost) {
+    if (!confirm(`取消《${p.title}》的定时发布？`)) return;
+    setBusyId(p.id);
+    try {
+      await api(`/api/posts/${p.id}/schedule`, { method: "DELETE" });
+      refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "取消定时失败");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleString("zh-CN", { hour12: false });
   }
@@ -165,6 +179,11 @@ export function PostList() {
                   >
                     {STATUS_BADGE[p.status].label}
                   </span>
+                  {p.scheduledFor && (
+                    <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+                      定时 {new Date(p.scheduledFor).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 truncate text-xs text-zinc-500">
                   /{p.slug}
@@ -190,6 +209,16 @@ export function PostList() {
                     className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white transition hover:bg-emerald-700 disabled:opacity-60"
                   >
                     发布
+                  </button>
+                )}
+                {p.scheduledFor && p.status !== "published" && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancelSchedule(p)}
+                    disabled={busyId === p.id}
+                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs text-blue-600 transition hover:bg-blue-50 disabled:opacity-60 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-950"
+                  >
+                    取消定时
                   </button>
                 )}
                 <button

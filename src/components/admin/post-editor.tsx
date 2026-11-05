@@ -19,6 +19,7 @@ export interface EditorInitial {
   content: string;
   status: "draft" | "published" | "hidden";
   publishedAt: string | null;
+  scheduledFor: string | null;
   categoryId: number | null;
   tagIds: number[];
   /** 标题/日期展示用（新建时为空） */
@@ -79,6 +80,9 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [scheduledFor, setScheduledFor] = useState<string | null>(initial.scheduledFor);
   const [busy, setBusy] = useState(false);
 
   const dirtyRef = useRef(saveStatus.kind === "dirty");
@@ -293,6 +297,49 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
     }
   }
 
+  // ---------- 定时发布（FR-6-06） ----------
+  async function handleSchedule() {
+    if (idRef.current == null) {
+      alert("请先保存文章再设置定时发布");
+      return;
+    }
+    if (!scheduleTime) {
+      alert("请选择定时发布时间");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { post } = (await api<{ post: { scheduledFor: string } }>(
+        `/api/posts/${idRef.current}/schedule`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scheduledFor: scheduleTime }) }
+      )) as { post: { scheduledFor: string } };
+      setScheduledFor(post.scheduledFor);
+      setScheduleOpen(false);
+      setScheduleTime("");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "设置定时发布失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCancelSchedule() {
+    if (idRef.current == null) return;
+    if (!confirm("取消定时发布？")) return;
+    setBusy(true);
+    try {
+      const { post } = (await api<{ post: { scheduledFor: null } }>(
+        `/api/posts/${idRef.current}/schedule`,
+        { method: "DELETE" }
+      )) as { post: { scheduledFor: null } };
+      setScheduledFor(post.scheduledFor);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "取消定时失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // ---------- 版本历史（FR-6-10） ----------
   // 回滚成功后：DB 已是目标版本内容，内存同步三字段、清 dirty（不制造假脏标记）。
   // 预览 debounce 随 content 变化自动重算；分类/标签/状态不动（回滚只找回文字）
@@ -445,6 +492,15 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
                 版本历史
               </button>
             )}
+            {postId != null && status !== "published" && (
+              <button
+                type="button"
+                onClick={() => setScheduleOpen((v) => !v)}
+                className="rounded-lg border border-blue-300 px-4 py-2 text-sm text-blue-600 transition hover:bg-blue-50 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-950"
+              >
+                {scheduledFor ? "修改定时" : "定时发布"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => enqueueSave()}
@@ -476,6 +532,54 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
       </div>
       {/* 给固定栏留出空间 */}
       <div className="h-16" />
+
+      {/* 定时发布弹窗 */}
+      {scheduleOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setScheduleOpen(false)}>
+          <div className="w-80 rounded-xl bg-white p-5 shadow-lg dark:bg-zinc-900" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-3 text-base font-semibold text-zinc-900 dark:text-zinc-100">定时发布</h3>
+            {scheduledFor && (
+              <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
+                当前定时：{new Date(scheduledFor).toLocaleString("zh-CN", { hour12: false })}
+              </p>
+            )}
+            <input
+              type="datetime-local"
+              value={scheduleTime}
+              onChange={(e) => setScheduleTime(e.target.value)}
+              min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+              className="mb-4 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            <div className="flex justify-end gap-2">
+              {scheduledFor && (
+                <button
+                  type="button"
+                  onClick={handleCancelSchedule}
+                  disabled={busy}
+                  className="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                >
+                  取消定时
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setScheduleOpen(false)}
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                关闭
+              </button>
+              <button
+                type="button"
+                onClick={handleSchedule}
+                disabled={busy || !scheduleTime}
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
+              >
+                {busy ? "设置中…" : "确认"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PublishChecklist
         open={checklistOpen}

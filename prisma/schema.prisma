@@ -57,9 +57,10 @@ model Post {
   category    Category   @relation(fields: [categoryId], references: [id])
   tags        PostTag[]
   versions    PostVersion[]
-  publishedAt DateTime?  // 发布时间；编辑不刷新（FR-6-07）
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  publishedAt  DateTime? // 发布时间；编辑不刷新（FR-6-07）
+  scheduledFor DateTime? // 定时发布时间；null=非定时（FR-6-06）
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 // ---------- 文章版本快照（FR-6-10：每次保存前拍快照，可 diff / 可回滚）----------

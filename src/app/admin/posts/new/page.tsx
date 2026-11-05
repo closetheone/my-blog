@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
 import { PostEditor, type EditorInitial } from "@/components/admin/post-editor";
 
+export const instant = false;
+
 export const metadata = {
   title: "新建文章",
 };
@@ -21,6 +23,7 @@ export default async function NewPostPage() {
     content: "",
     status: "draft",
     publishedAt: null,
+    scheduledFor: null,
     categoryId: null,
     tagIds: [],
     categoryName: null,
