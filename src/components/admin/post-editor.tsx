@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PreviewFrame, type PreviewFrameData } from "./preview-frame";
 import { PublishChecklist, type ChecklistState } from "./publish-checklist";
+import { PostVersionHistory, type RolledBackPost } from "./post-version-history";
 
 export interface EditorInitial {
   id: number | null; // null = 新建（首次保存后拿到 id）
@@ -77,6 +78,7 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
   const [preview, setPreview] = useState<PreviewFrameData | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const dirtyRef = useRef(saveStatus.kind === "dirty");
@@ -291,6 +293,15 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
     }
   }
 
+  // ---------- 版本历史（FR-6-10） ----------
+  // 回滚成功后：DB 已是目标版本内容，内存同步三字段、清 dirty（不制造假脏标记）。
+  // 预览 debounce 随 content 变化自动重算；分类/标签/状态不动（回滚只找回文字）
+  function handleRolledBack(post: RolledBackPost) {
+    setFields((cur) => ({ ...cur, title: post.title, excerpt: post.excerpt, content: post.content }));
+    dirtyRef.current = false;
+    setSaveStatus({ kind: "saved", at: fmtTime(new Date()) });
+  }
+
   // ---------- 保存状态文案 ----------
   const statusText = (() => {
     switch (saveStatus.kind) {
@@ -425,6 +436,15 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
             {statusText}
           </span>
           <div className="flex gap-2">
+            {postId != null && (
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(true)}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                版本历史
+              </button>
+            )}
             <button
               type="button"
               onClick={() => enqueueSave()}
@@ -464,6 +484,18 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
         onClose={() => setChecklistOpen(false)}
         onPublish={handlePublish}
       />
+
+      {postId != null && (
+        <PostVersionHistory
+          open={historyOpen}
+          postId={postId}
+          currentTitle={fields.title}
+          currentExcerpt={fields.excerpt}
+          currentContent={fields.content}
+          onRolledBack={handleRolledBack}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
   );
 }
