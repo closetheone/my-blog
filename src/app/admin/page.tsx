@@ -1,6 +1,7 @@
 // 管理后台首页 = 文章管理列表（PRD FR-6-04）
 // proxy 之外的第二道兜底：会话无效/过期 redirect 登录页
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentAdmin } from "@/lib/auth";
 import { AdminLogoutButton } from "@/components/admin-logout";
 import { PostList } from "@/components/admin/post-list";
@@ -21,6 +22,12 @@ export default async function AdminPage() {
         <span className="w-32 text-right">
           登录：<span className="font-medium text-zinc-600 dark:text-zinc-300">{s.admin.username}</span>
         </span>
+        <Link
+          href="/admin/settings"
+          className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+        >
+          设置
+        </Link>
         <AdminLogoutButton />
       </div>
       <PostList />
