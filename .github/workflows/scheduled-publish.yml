@@ -1,0 +1,27 @@
+name: Scheduled Publish
+
+on:
+  schedule:
+    # 每 5 分钟扫描一次到期的定时文章
+    - cron: "*/5 * * * *"
+  # 允许手动触发
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger publish-scheduled cron
+        run: |
+          set -euo pipefail
+          if [ -z "${{ secrets.PUBLIC_URL }}" ] || [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::PUBLIC_URL 或 CRON_SECRET 未配置（GitHub Secrets）"
+            exit 1
+          fi
+          code=$(curl -s -o resp.json -w '%{http_code}' \
+            -X POST "${{ secrets.PUBLIC_URL }}/api/cron/publish-scheduled" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $code: $(cat resp.json)"
+          if [ "$code" != "200" ]; then
+            exit 1
+          fi
