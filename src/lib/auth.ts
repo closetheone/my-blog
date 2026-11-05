@@ -69,6 +69,30 @@ export async function destroySession(token: string | undefined): Promise<void> {
   await prisma.session.deleteMany({ where: { id: token } });
 }
 
+// 使某管理员除 exceptToken 外的所有会话失效（FR-6-12 改密后调用）
+export async function invalidateAllSessionsExcept(
+  adminId: number,
+  exceptToken: string
+): Promise<number> {
+  const { count } = await prisma.session.deleteMany({
+    where: { adminId, id: { not: exceptToken } },
+  });
+  return count;
+}
+
+// 新密码强度校验（FR-6-12）：≥8 位，且同时包含字母和数字。
+// 不要求大小写混合/特殊符号——个人博客单管理员，规则过严会劝退自己。
+// 返回 { ok, error? }，error 文案可直接展示给用户。
+export function validateNewPassword(
+  plain: string
+): { ok: true } | { ok: false; error: string } {
+  if (plain.length < 8) return { ok: false, error: "密码至少 8 位" };
+  if (!/[a-zA-Z]/.test(plain) || !/\d/.test(plain)) {
+    return { ok: false, error: "密码需同时包含字母和数字" };
+  }
+  return { ok: true };
+}
+
 // 供 server component / route handler 读取当前管理员（实时查库，含过期惰性清理）
 export async function getCurrentAdmin() {
   const store = await cookies();
