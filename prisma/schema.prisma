@@ -56,9 +56,23 @@ model Post {
   categoryId  Int
   category    Category   @relation(fields: [categoryId], references: [id])
   tags        PostTag[]
+  versions    PostVersion[]
   publishedAt DateTime?  // 发布时间；编辑不刷新（FR-6-07）
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+}
+
+// ---------- 文章版本快照（FR-6-10：每次保存前拍快照，可 diff / 可回滚）----------
+model PostVersion {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  title     String
+  excerpt   String
+  content   String // Markdown 原文
+  createdAt DateTime @default(now())
+
+  @@index([postId, id(sort: Desc)])
 }
 
 // ---------- 文章-标签 多对多 ----------

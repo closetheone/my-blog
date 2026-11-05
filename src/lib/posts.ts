@@ -161,6 +161,37 @@ export async function upsertTag(name: string) {
   return prisma.tag.create({ data: { name: trimmed, slug } });
 }
 
+// ---------- 版本快照（FR-6-10） ----------
+
+// 写库前对「当前（旧）内容」拍快照。
+// 与最近一条快照 title/excerpt/content 完全相同则跳过——
+// 30s 自动保存对无改动内容也会 PUT，不去重会刷出大量重复版本。
+async function snapshotIfChanged(
+  tx: { postVersion: typeof prisma.postVersion },
+  post: { id: number; title: string; excerpt: string; content: string }
+) {
+  const last = await tx.postVersion.findFirst({
+    where: { postId: post.id },
+    orderBy: { id: "desc" },
+  });
+  if (
+    last &&
+    last.title === post.title &&
+    last.excerpt === post.excerpt &&
+    last.content === post.content
+  ) {
+    return;
+  }
+  await tx.postVersion.create({
+    data: {
+      postId: post.id,
+      title: post.title,
+      excerpt: post.excerpt,
+      content: post.content,
+    },
+  });
+}
+
 // ---------- CRUD ----------
 
 const LIST_INCLUDE = {
@@ -236,30 +267,42 @@ export async function createPost(body: PostInput) {
   return { ...toAdminPost(post), content: post.content, categoryId: post.categoryId, tagIds: post.tags.map((t) => t.tag.id) };
 }
 
-/** 更新：不改 publishedAt（FR-6-07）；status 仅 draft/hidden */
+/** 更新：不改 publishedAt（FR-6-07）；status 仅 draft/hidden；
+ *  落库前对旧内容拍版本快照（FR-6-10），事务内原子执行 */
 export async function updatePost(id: number, body: PostInput) {
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) throw new HttpError(404, "文章不存在");
   // slug 不在本次编辑范围（改标题不改 slug，避免前台链接失效）
   const input = await validateInput(body, { requireExcerpt: false });
   const status = normalizeStatus(body.status);
-  const updated = await prisma.post.update({
-    where: { id },
-    data: {
-      title: input.title,
-      excerpt: input.excerpt,
-      content: input.content,
-      categoryId: input.categoryId,
-      status,
-      tags: { deleteMany: {}, create: input.tagIds.map((tagId) => ({ tagId })) },
-    },
-    include: LIST_INCLUDE,
+  const contentChanged =
+    input.title !== post.title ||
+    input.excerpt !== post.excerpt ||
+    input.content !== post.content;
+  const updated = await prisma.$transaction(async (tx) => {
+    // 内容三字段有变化才拍快照（无改动保存不产生重复版本）
+    if (contentChanged) {
+      await snapshotIfChanged(tx, post);
+    }
+    return tx.post.update({
+      where: { id },
+      data: {
+        title: input.title,
+        excerpt: input.excerpt,
+        content: input.content,
+        categoryId: input.categoryId,
+        status,
+        tags: { deleteMany: {}, create: input.tagIds.map((tagId) => ({ tagId })) },
+      },
+      include: LIST_INCLUDE,
+    });
   });
   revalidateTag("posts", { expire: 0 });
   return { ...toAdminPost(updated), content: updated.content, categoryId: updated.categoryId, tagIds: updated.tags.map((t) => t.tag.id) };
 }
 
-/** 发布：publishedAt 为空才写入；refreshPublishedAt=true 才刷新（FR-6-07 手动更新入口） */
+/** 发布：publishedAt 为空才写入；refreshPublishedAt=true 才刷新（FR-6-07 手动更新入口）。
+ *  发布前对当前内容拍快照（FR-6-10） */
 export async function publishPost(id: number, opts: { refreshPublishedAt?: boolean } = {}) {
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) throw new HttpError(404, "文章不存在");
@@ -267,10 +310,13 @@ export async function publishPost(id: number, opts: { refreshPublishedAt?: boole
   if (!post.publishedAt || opts.refreshPublishedAt) {
     data.publishedAt = new Date();
   }
-  const updated = await prisma.post.update({
-    where: { id },
-    data,
-    include: LIST_INCLUDE,
+  const updated = await prisma.$transaction(async (tx) => {
+    await snapshotIfChanged(tx, post);
+    return tx.post.update({
+      where: { id },
+      data,
+      include: LIST_INCLUDE,
+    });
   });
   revalidateTag("posts", { expire: 0 });
   return toAdminPost(updated);
@@ -289,10 +335,77 @@ export async function unpublishPost(id: number) {
   return toAdminPost(updated);
 }
 
-/** 删除（前端已二次确认） */
+/** 删除（前端已二次确认）。PostVersion 靠 Prisma onDelete: Cascade 级联清理 */
 export async function deletePost(id: number) {
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) throw new HttpError(404, "文章不存在");
   await prisma.post.delete({ where: { id } });
   revalidateTag("posts", { expire: 0 });
+}
+
+// ---------- 版本历史（FR-6-10） ----------
+
+export interface PostVersionItem {
+  id: number;
+  title: string;
+  excerpt: string;
+  content: string;
+  createdAt: Date;
+  chars: number;
+}
+
+/** 版本时间线（新→旧）；post 不存在 → 404 */
+export async function listPostVersions(postId: number): Promise<PostVersionItem[]> {
+  const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+  if (!post) throw new HttpError(404, "文章不存在");
+  const versions = await prisma.postVersion.findMany({
+    where: { postId },
+    orderBy: { id: "desc" },
+  });
+  return versions.map((v) => ({
+    id: v.id,
+    title: v.title,
+    excerpt: v.excerpt,
+    content: v.content,
+    createdAt: v.createdAt,
+    chars: v.content.length,
+  }));
+}
+
+/** 回滚到指定版本 = 一次保存：先把当前内容拍快照（可二次反悔），再写回目标版本内容。
+ *  不改 status / publishedAt / 分类 / 标签——语义是「找回文字」，不是「时光倒流」 */
+export async function rollbackPostVersion(postId: number, versionId: number) {
+  const [post, version] = await prisma.$transaction([
+    prisma.post.findUnique({ where: { id: postId } }),
+    prisma.postVersion.findFirst({ where: { id: versionId, postId } }),
+  ]);
+  if (!post) throw new HttpError(404, "文章不存在");
+  if (!version) throw new HttpError(404, "版本不存在");
+  const updated = await prisma.$transaction(async (tx) => {
+    if (
+      post.title !== version.title ||
+      post.excerpt !== version.excerpt ||
+      post.content !== version.content
+    ) {
+      await tx.postVersion.create({
+        data: {
+          postId,
+          title: post.title,
+          excerpt: post.excerpt,
+          content: post.content,
+        },
+      });
+    }
+    return tx.post.update({
+      where: { id: postId },
+      data: {
+        title: version.title,
+        excerpt: version.excerpt,
+        content: version.content,
+      },
+      include: LIST_INCLUDE,
+    });
+  });
+  revalidateTag("posts", { expire: 0 });
+  return { ...toAdminPost(updated), content: updated.content, categoryId: updated.categoryId, tagIds: updated.tags.map((t) => t.tag.id) };
 }

@@ -13,6 +13,7 @@
     "@node-rs/argon2": "^2.2.2",
     "@prisma/client": "^6.19.3",
     "@uiw/react-md-editor": "^4.2.2",
+    "diff": "^9.0.0",
     "github-slugger": "^2.0.0",
     "gray-matter": "^4.0.3",
     "hast-util-sanitize": "^5.0.2",
