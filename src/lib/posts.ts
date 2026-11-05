@@ -215,6 +215,7 @@ function toAdminPost(p: ListPost) {
     category: p.category?.name ?? null,
     tags: p.tags.map((t) => t.tag.name),
     publishedAt: p.publishedAt,
+    scheduledFor: p.scheduledFor,
     updatedAt: p.updatedAt,
   };
 }
@@ -333,6 +334,70 @@ export async function unpublishPost(id: number) {
   });
   revalidateTag("posts", { expire: 0 });
   return toAdminPost(updated);
+}
+
+// ---------- 定时发布（FR-6-06） ----------
+
+/** 设置定时发布：post 必须为 draft，scheduledFor 必须是未来时间 */
+export async function schedulePost(id: number, scheduledFor: Date) {
+  const post = await prisma.post.findUnique({ where: { id } });
+  if (!post) throw new HttpError(404, "文章不存在");
+  if (post.status !== "draft") {
+    throw new HttpError(400, "仅草稿状态的文章可设置定时发布");
+  }
+  if (scheduledFor.getTime() <= Date.now()) {
+    throw new HttpError(400, "定时发布时间必须晚于当前时间");
+  }
+  const updated = await prisma.post.update({
+    where: { id },
+    data: { scheduledFor },
+    include: LIST_INCLUDE,
+  });
+  revalidateTag("posts", { expire: 0 });
+  return toAdminPost(updated);
+}
+
+/** 取消定时发布：清空 scheduledFor，状态保持 draft */
+export async function cancelSchedulePost(id: number) {
+  const post = await prisma.post.findUnique({ where: { id } });
+  if (!post) throw new HttpError(404, "文章不存在");
+  if (!post.scheduledFor) {
+    throw new HttpError(400, "该文章未设置定时发布");
+  }
+  const updated = await prisma.post.update({
+    where: { id },
+    data: { scheduledFor: null },
+    include: LIST_INCLUDE,
+  });
+  revalidateTag("posts", { expire: 0 });
+  return toAdminPost(updated);
+}
+
+/** Cron 调度：扫描 scheduledFor <= now() 且 status=draft 的 Post，批量发布 */
+export async function processScheduledPosts() {
+  const now = new Date();
+  const duePosts = await prisma.post.findMany({
+    where: {
+      status: "draft",
+      scheduledFor: { lte: now },
+    },
+  });
+  let count = 0;
+  for (const post of duePosts) {
+    try {
+      await prisma.post.update({
+        where: { id: post.id },
+        data: { status: "published", publishedAt: post.scheduledFor, scheduledFor: null },
+      });
+      count++;
+    } catch (e) {
+      console.error(`[cron/scheduled] 发布文章 ${post.id} 失败:`, e);
+    }
+  }
+  if (count > 0) {
+    revalidateTag("posts", { expire: 0 });
+  }
+  return count;
 }
 
 /** 删除（前端已二次确认）。PostVersion 靠 Prisma onDelete: Cascade 级联清理 */

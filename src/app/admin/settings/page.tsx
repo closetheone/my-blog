@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
 import { AdminSettings } from "@/components/admin/settings";
 
+export const instant = false;
+
 export const metadata = {
   title: "账户设置",
 };

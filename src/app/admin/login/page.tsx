@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
 import { AdminLoginForm } from "@/components/admin-login";
 
+export const instant = false;
+
 export const metadata = {
   title: "管理员登录",
 };

@@ -10,6 +10,8 @@ export const metadata = {
   title: "文章管理",
 };
 
+export const instant = false;
+
 export default async function AdminPage() {
   // 读取 cookie 查库，天然动态渲染（读最新会话状态）
   const s = await getCurrentAdmin();
