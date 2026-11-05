@@ -307,11 +307,13 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
       alert("请选择定时发布时间");
       return;
     }
+    // datetime-local 值无时区，按浏览器本地时区转成 UTC ISO，避免服务器按 UTC 解析差 8 小时
+    const scheduleIso = new Date(scheduleTime).toISOString();
     setBusy(true);
     try {
       const { post } = (await api<{ post: { scheduledFor: string } }>(
         `/api/posts/${idRef.current}/schedule`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scheduledFor: scheduleTime }) }
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scheduledFor: scheduleIso }) }
       )) as { post: { scheduledFor: string } };
       setScheduledFor(post.scheduledFor);
       setScheduleOpen(false);
