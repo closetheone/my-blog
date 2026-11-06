@@ -1,6 +1,6 @@
 // V2.0 核心数据模型
-// 对应 PRD §5.0：管理员账号、文章、分类、标签
-// 评论/点赞/留言/图片 在 V2.1+ 逐步加入
+// 对应 PRD §5.0：管理员账号、文章、分类、标签、图片
+// 评论/点赞/留言 在 V2.1+ 逐步加入
 
 generator client {
   provider = "prisma-client-js"
@@ -57,6 +57,7 @@ model Post {
   category    Category   @relation(fields: [categoryId], references: [id])
   tags        PostTag[]
   versions    PostVersion[]
+  images      PostImageRelation[] // 关联图片（复用，FR-6-05）
   publishedAt  DateTime? // 发布时间；编辑不刷新（FR-6-07）
   scheduledFor DateTime? // 定时发布时间；null=非定时（FR-6-06）
   createdAt    DateTime  @default(now())
@@ -85,6 +86,29 @@ model PostTag {
   tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([postId, tagId])
+}
+
+// ---------- 图库（FR-6-05：全局图片，可跨文章复用；存储 Vercel Blob）----------
+model PostImage {
+  id        Int                 @id @default(autoincrement())
+  url       String              @unique // Vercel Blob 公网 URL
+  filename  String              // 原始文件名（展示用）
+  mimeType  String
+  width     Int // 压缩后尺寸
+  height    Int
+  sizeBytes Int
+  createdAt DateTime            @default(now())
+  relations PostImageRelation[]
+}
+
+// ---------- 文章-图片 多对多（删文章级联清关联，图保留）----------
+model PostImageRelation {
+  postId  Int
+  imageId Int
+  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  image   PostImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, imageId])
 }
 
 // ---------- 会话（FR-6-02：登出=删行）----------

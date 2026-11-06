@@ -7,6 +7,7 @@
 import MDEditor from "@uiw/react-md-editor";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ImagePicker } from "./image-picker";
 import { PreviewFrame, type PreviewFrameData } from "./preview-frame";
 import { PublishChecklist, type ChecklistState } from "./publish-checklist";
 import { PostVersionHistory, type RolledBackPost } from "./post-version-history";
@@ -80,15 +81,19 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleTime, setScheduleTime] = useState("");
   const [scheduledFor, setScheduledFor] = useState<string | null>(initial.scheduledFor);
   const [busy, setBusy] = useState(false);
+  const [scheduleMin] = useState(() => new Date(Date.now() + 60000).toISOString().slice(0, 16));
 
   const dirtyRef = useRef(saveStatus.kind === "dirty");
   const idRef = useRef(postId);
   const fieldsRef = useRef(fields);
   const savingRef = useRef<Promise<void>>(Promise.resolve());
+  // 本次会话选中/上传的图片 URL（保存成功后补关联；关联失败保留到下次保存重试）
+  const pickedImageUrlsRef = useRef<Set<string>>(new Set());
 
   // 保持 ref 最新，避免 30s 定时器闭包拿到旧值
   useEffect(() => {
@@ -114,6 +119,29 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
   function updateField<K extends keyof PostFields>(key: K, value: PostFields[K]) {
     setFields((f) => ({ ...f, [key]: value }));
     markDirty();
+  }
+
+  // ---------- 图片（FR-6-05）：插入正文末尾（MDEditor 受控模式取不到光标位置）；
+  // 记录本次选中的 URL，保存成功后补关联（幂等，失败保留重试） ----------
+  function handlePickImage(url: string) {
+    pickedImageUrlsRef.current.add(url);
+    setFields((f) => ({ ...f, content: `${f.content}\n\n![](${url})` }));
+    markDirty();
+  }
+
+  // 保存成功后把本次选中的图关联到文章（新建首次保存也能关联，规避 id 时序）
+  async function associatePickedImages(savedId: number) {
+    if (pickedImageUrlsRef.current.size === 0) return;
+    try {
+      await api("/api/images/associate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: savedId, urls: [...pickedImageUrlsRef.current] }),
+      });
+      pickedImageUrlsRef.current.clear();
+    } catch {
+      // 关联失败不阻塞保存（图已能用，URL 在正文里）；保留集合，下次保存重试
+    }
   }
 
   // ---------- 保存（手动/自动共用；串行队列防旧内容覆盖新内容） ----------
@@ -164,6 +192,7 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
         setFields((cur) => ({ ...cur, tagIds, newTag: "" }));
       }
       dirtyRef.current = false;
+      void associatePickedImages(savedId); // 补关联（不阻塞，内部吞错保留重试）
       setSaveStatus({ kind: "saved", at: fmtTime(new Date()) });
     } catch (e) {
       // 失败：dirty 保持 true，下轮 30s 自动重试；内容不丢（仍在页面里）
@@ -485,6 +514,13 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
             {statusText}
           </span>
           <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setImagePickerOpen(true)}
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              插入图片
+            </button>
             {postId != null && (
               <button
                 type="button"
@@ -549,7 +585,7 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
               type="datetime-local"
               value={scheduleTime}
               onChange={(e) => setScheduleTime(e.target.value)}
-              min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+              min={scheduleMin}
               className="mb-4 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
             <div className="flex justify-end gap-2">
@@ -582,6 +618,13 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
           </div>
         </div>
       )}
+
+      <ImagePicker
+        open={imagePickerOpen}
+        postId={postId}
+        onPick={handlePickImage}
+        onClose={() => setImagePickerOpen(false)}
+      />
 
       <PublishChecklist
         open={checklistOpen}
