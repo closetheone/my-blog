@@ -7,7 +7,7 @@
 // - 评论纯文本 {text} 插值渲染（React 转义，无 XSS 面）
 // 交互：默认折叠「发表评论（N）」，点击展开表单；提交成功直接插入列表不整页刷新
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ReplyView = {
   id: number;
@@ -31,17 +31,25 @@ const EMPTY_FORM: FormFields = { nickname: "", email: "", content: "", url: "" }
 const gravatarUrl = (hash: string) =>
   `https://www.gravatar.com/avatar/${hash}?d=identicon&s=80`;
 
-// 中文相对时间（>1 天显示日期）；纯展示，时间基准用惰性初始化避免渲染期 Date.now()
+// 中文相对时间（>1 天显示日期）
+// 注意：Date.now() 不能在渲染期/惰性初始化中调用（prerender 会求值 → "Render in Browser"），
+// 改为挂载后 effect 取值，SSR 阶段只按 ISO 算日期
 function useTimeBase() {
-  const [base] = useState(() => Date.now());
+  const [base, setBase] = useState<number | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 同 theme-toggle：挂载后取客户端时间
+    setBase(Date.now());
+  }, []);
   return (iso: string) => {
     const t = new Date(iso).getTime();
+    const d = new Date(t);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (base == null) return dateStr;
     const diff = base - t;
     if (diff < 60 * 1000) return "刚刚";
     if (diff < 3600 * 1000) return `${Math.floor(diff / 60000)} 分钟前`;
     if (diff < 24 * 3600 * 1000) return `${Math.floor(diff / 3600000)} 小时前`;
-    const d = new Date(t);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return dateStr;
   };
 }
 
