@@ -25,6 +25,8 @@ export interface EditorInitial {
   tagIds: number[];
   /** 标题/日期展示用（新建时为空） */
   categoryName: string | null;
+  /** 单篇评论开关（FR-3-06），默认开 */
+  commentsEnabled: boolean;
 }
 
 interface Meta {
@@ -86,6 +88,8 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
   const [scheduleTime, setScheduleTime] = useState("");
   const [scheduledFor, setScheduledFor] = useState<string | null>(initial.scheduledFor);
   const [busy, setBusy] = useState(false);
+  const [commentsEnabled, setCommentsEnabled] = useState(initial.commentsEnabled);
+  const [commentsBusy, setCommentsBusy] = useState(false);
   const [scheduleMin] = useState(() => new Date(Date.now() + 60000).toISOString().slice(0, 16));
 
   const dirtyRef = useRef(saveStatus.kind === "dirty");
@@ -380,6 +384,32 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
     setSaveStatus({ kind: "saved", at: fmtTime(new Date()) });
   }
 
+  // ---------- 单篇评论开关（FR-3-06）：独立 PATCH，不触脏标记/自动保存 ----------
+  async function handleToggleComments() {
+    const id = idRef.current;
+    if (id == null) {
+      alert("请先保存文章");
+      return;
+    }
+    const next = !commentsEnabled;
+    setCommentsBusy(true);
+    try {
+      const { commentsEnabled: ok } = (await api<{ commentsEnabled: boolean }>(
+        `/api/posts/${id}/comments-setting`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: next }),
+        }
+      )) as { commentsEnabled: boolean };
+      setCommentsEnabled(ok);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "设置失败");
+    } finally {
+      setCommentsBusy(false);
+    }
+  }
+
   // ---------- 保存状态文案 ----------
   const statusText = (() => {
     switch (saveStatus.kind) {
@@ -478,6 +508,19 @@ export function PostEditor({ initial }: { initial: EditorInitial }) {
               className="rounded-lg border border-dashed border-zinc-300 bg-transparent px-2.5 py-1 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700"
             />
           </div>
+
+          {/* 单篇评论开关（FR-3-06）：独立即时生效，不随正文保存 */}
+          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={commentsEnabled}
+              onChange={handleToggleComments}
+              disabled={commentsBusy}
+              className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700"
+            />
+            允许评论（关闭后前台显示「本文已关闭评论」）
+            {commentsBusy && <span className="text-xs text-zinc-400">保存中…</span>}
+          </label>
 
           <div data-color-mode="light">
             <MDEditor

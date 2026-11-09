@@ -10,6 +10,8 @@ import { CodeBlock } from "@/components/code-block";
 import { LightboxImage } from "@/components/lightbox-image";
 import { TableOfContents } from "@/components/table-of-contents";
 import { CopyLinkButton } from "@/components/copy-link-button";
+import { PostMeta } from "@/components/post-meta";
+import { CommentSection } from "@/components/comment-section";
 
 // 博客文章页依赖 params 读取 slug，不需要 instant navigation 优化
 export const instant = false;
@@ -127,6 +129,20 @@ export default async function PostPage({ params }: Props) {
             )}
           </nav>
         )}
+
+        {/* 点赞 + 浏览量（FR-3-03/05）：client-side，初始值用静态计数 */}
+        <div className="mx-auto mt-8 max-w-[700px]">
+
+        </div>
+
+        {/* 评论区（FR-3-01/06/07）：读完正文出现，不打断阅读 */}
+        <div className="mx-auto max-w-[700px]">
+          <CommentSection
+            postId={post.id}
+            enabled={post.commentsEnabled ?? true}
+            initialCount={post.commentsCount ?? 0}
+          />
+        </div>
 
         <footer className="mx-auto mt-12 max-w-[700px] border-t border-zinc-200 pt-6 text-sm text-zinc-500 dark:border-zinc-800">
           <div className="mb-4">

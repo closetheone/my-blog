@@ -27,6 +27,7 @@ export default async function NewPostPage() {
     categoryId: null,
     tagIds: [],
     categoryName: null,
+    commentsEnabled: true, // 默认开（FR-3-06）
   };
   return <PostEditor initial={initial} />;
 }

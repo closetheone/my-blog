@@ -25,6 +25,12 @@ export default async function AdminPage() {
           登录：<span className="font-medium text-zinc-600 dark:text-zinc-300">{s.admin.username}</span>
         </span>
         <Link
+          href="/admin/comments"
+          className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+        >
+          评论
+        </Link>
+        <Link
           href="/admin/settings"
           className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
         >

@@ -35,6 +35,7 @@ export default async function EditPostPage({
     categoryId: post.categoryId,
     tagIds: post.tagIds,
     categoryName: post.category,
+    commentsEnabled: post.commentsEnabled,
   };
   return <PostEditor initial={initial} />;
 }
