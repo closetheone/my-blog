@@ -7,6 +7,7 @@ import { cacheTag } from "next/cache";
 export type PostStatus = "draft" | "published" | "hidden";
 
 export interface Post {
+  id: number; // 数据库 id（评论/点赞/PV 接口用）
   slug: string;
   title: string;
   date: string; // ISO 日期 YYYY-MM-DD
@@ -16,10 +17,15 @@ export interface Post {
   status: PostStatus;
   pinned?: boolean;
   content: string; // Markdown 原文（不含 front-matter）
+  commentsEnabled?: boolean; // 单篇评论开关（FR-3-06）
+  commentsCount?: number;
+  likesCount?: number;
+  pvCount?: number;
 }
 
 /** 将 Prisma Post 记录映射为前端 Post 接口 */
 function mapPost(record: {
+  id: number;
   slug: string;
   title: string;
   excerpt: string;
@@ -29,6 +35,10 @@ function mapPost(record: {
   publishedAt: Date | null;
   category: { name: string };
   tags: { tag: { name: string } }[];
+  commentsEnabled?: boolean;
+  commentsCount?: number;
+  likesCount?: number;
+  pvCount?: number;
 }): Post {
   // 优先用 publishedAt（发布时间），fallback 到当天
   const date = record.publishedAt
@@ -36,6 +46,7 @@ function mapPost(record: {
     : new Date().toISOString().slice(0, 10);
 
   return {
+    id: record.id,
     slug: record.slug,
     title: record.title,
     date,
@@ -45,6 +56,10 @@ function mapPost(record: {
     status: record.status as PostStatus,
     pinned: record.pinned,
     content: record.content,
+    commentsEnabled: record.commentsEnabled,
+    commentsCount: record.commentsCount,
+    likesCount: record.likesCount,
+    pvCount: record.pvCount,
   };
 }
 

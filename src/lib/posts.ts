@@ -245,6 +245,7 @@ export async function getPostFull(id: number) {
     content: record.content,
     categoryId: record.categoryId,
     tagIds: record.tags.map((t) => t.tag.id),
+    commentsEnabled: record.commentsEnabled,
   };
 }
 

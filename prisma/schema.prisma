@@ -58,6 +58,11 @@ model Post {
   tags        PostTag[]
   versions    PostVersion[]
   images      PostImageRelation[] // 关联图片（复用，FR-6-05）
+  comments    Comment[] // 评论（FR-3-01）
+  commentsEnabled Boolean @default(true) // 单篇评论开关（FR-3-06），默认开
+  commentsCount   Int     @default(0) // 反规范计数（含二级；列表页/仪表盘直接读）
+  likesCount      Int     @default(0) // 点赞数（FR-3-03）
+  pvCount         Int     @default(0) // 浏览量（FR-3-05）
   publishedAt  DateTime? // 发布时间；编辑不刷新（FR-6-07）
   scheduledFor DateTime? // 定时发布时间；null=非定时（FR-6-06）
   createdAt    DateTime  @default(now())
@@ -109,6 +114,35 @@ model PostImageRelation {
   image   PostImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
 
   @@unique([postId, imageId])
+}
+
+// ---------- 评论（FR-3-01：两级层级；纯文本；邮箱不落库，只用 md5 关联 Gravatar）----------
+model Comment {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId  Int? // 只允许指向一级评论（null = 一级）；更深层用「@昵称」表示
+  parent    Comment?  @relation("CommentTree", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentTree")
+  nickname  String // 1~20 字
+  emailHash String // md5(小写去空格邮箱)，仅统计同作者用，非邮箱明文
+  url       String? // 个人网址，选填（渲染 target=_blank rel=noopener）
+  content   String // 纯文本（前端 {text} 插值渲染，React 转义）
+  pinned    Boolean   @default(false) // 置顶（FR-3-02）
+  createdAt DateTime  @default(now())
+
+  @@index([postId, createdAt])
+  @@index([parentId])
+}
+
+// ---------- 浏览事件（FR-3-05：IP+文章 1h 窗口去重；只增不删，量级极小）----------
+model ViewEvent {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([postId, ip, createdAt])
 }
 
 // ---------- 会话（FR-6-02：登出=删行）----------
